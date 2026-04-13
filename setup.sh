@@ -31,10 +31,20 @@ apt-get install -y \
 
 # ===== CUDA (install once) =====
 if [ ! -f "/usr/local/cuda/bin/nvcc" ]; then
+  # Get max supported CUDA version from driver (e.g. "12.8" from nvidia-smi)
+  CUDA_VERSION=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1 | xargs -I{} nvidia-smi | grep "CUDA Version" | awk '{print $NF}')
+  
+  # Convert "12.8" -> "12-8" for apt package name
+  CUDA_PKG="cuda-toolkit-$(echo $CUDA_VERSION | tr '.' '-')"
+  
+  echo "[INFO] Detected max CUDA version: $CUDA_VERSION, installing $CUDA_PKG"
+  
   wget -nc https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
   sudo dpkg -i cuda-keyring_1.1-1_all.deb || true
   sudo apt update
-  sudo apt install -y cuda-toolkit-13-0
+  sudo apt install -y "$CUDA_PKG"
+  
+  sudo ln -sfn /usr/local/cuda-${CUDA_VERSION} /usr/local/cuda
 else
   echo "[SKIP] CUDA already installed"
 fi
