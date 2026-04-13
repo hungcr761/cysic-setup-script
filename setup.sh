@@ -53,7 +53,7 @@ download_file() {
       -o "$dst" \
       "$url"
   else
-    aria2c -x 4 -s 4 -k 1M \
+    aria2c -x 2 -s 2 -k 1M \
       --file-allocation=none \
       --continue=true \
       --max-tries=10 \
