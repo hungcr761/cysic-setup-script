@@ -94,7 +94,7 @@ mkdir -p "$VENUS_DIR"
 cd "$BASE_DIR"
 
 # ===== PART 1: PROVER FILES =====
-download_file "https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/v2.0.1/prover" "./prover"
+download_file "https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/v2.0.1/prover_linux" "./prover"
 download_file "https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/v2.0.1/libdarwin_prover.so" "./libzkp.so"
 download_file "https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/v2.0.1/libcysnet_monitor.so" "./libcysnet_monitor.so"
 download_file "https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/v2.0.1/librsp_prover.so" "./librsp.so"
