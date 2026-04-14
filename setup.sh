@@ -1,5 +1,4 @@
 #!/bin/bash
-set -euo pipefail
 
 # ===== INPUT =====
 if [ "$#" -ne 1 ]; then
