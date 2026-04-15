@@ -10,10 +10,9 @@ CLAIM_REWARD_ADDRESS=$1
 # ===== CONFIG =====
 BASE_DIR="$HOME/cysic-prover"
 VENUS_DIR="$HOME/venus_v0_1_6"
+
 ZISK_URL_1="https://public.prover.xyz/vadcop_final/venus_v0_1_6_backend_with_runtime.tar.zst"
 ZISK_URL_2="https://cys.atl1.cdn.digitaloceanspaces.com/cys/venus_v0_1_6_backend_with_runtime.tar.zst"
-
-echo "[SELECTED MIRROR] $ZISK_URL"
 BACKEND_SM89="https://public.prover.xyz/vadcop_final/venus_backend_sm_89.tar.zst"
 BACKEND_SM120="https://public.prover.xyz/vadcop_final/venus_backend_sm_120.tar.zst"
 
@@ -131,7 +130,6 @@ fi
 echo "LD_LIBRARY_PATH=. CHAIN_ID=534352 ./prover" > start.sh
 chmod +x start.sh
 # ========
-
 pick_fastest_url() {
   local url1="$1"
   local url2="$2"
@@ -139,7 +137,10 @@ pick_fastest_url() {
   test_speed() {
     local url="$1"
     local s
+
     s=$(curl -L --fail --range 0-5242879 -o /dev/null -s -w '%{speed_download}' "$url" 2>/dev/null || true)
+
+    # Make sure we always get a numeric value
     [[ "$s" =~ ^[0-9]+([.][0-9]+)?$ ]] || s=0
     printf '%s' "$s"
   }
@@ -155,11 +156,15 @@ pick_fastest_url() {
   elif awk -v a="$speed2" -v b="$speed1" 'BEGIN { exit !(a > b) }'; then
     printf '%s\n' "$url2"
   else
+    # Fallback so it never returns empty
     printf '%s\n' "$url1"
   fi
 }
 
-ZISK_URL=$(pick_fastest_url "$ZISK_URL_1" "$ZISK_URL_2")
+ZISK_URL="$(pick_fastest_url "$ZISK_URL_1" "$ZISK_URL_2")"
+if [ -z "$ZISK_URL" ]; then
+  ZISK_URL="$ZISK_URL_1"
+fi
 echo "[SELECTED MIRROR] $ZISK_URL"
 
 # ===== PART 2: DOWNLOAD BACKEND =====
@@ -180,6 +185,24 @@ if [ ! -d "$VENUS_DIR/build/provingKey" ]; then
   tar --zstd -xf "$HOME/zisk.tar.zst" -C "$VENUS_DIR" build/provingKey
 else
   echo "[SKIP] provingKey exists"
+fi
+
+# ===== ENSURE RUNTIME BINARY =====
+if [ ! -f "$VENUS_DIR/target/release/cargo-zisk" ]; then
+  echo "[EXTRACT] cargo-zisk"
+  tar --zstd -xf "$HOME/zisk.tar.zst" -C "$VENUS_DIR" target/release/cargo-zisk || true
+
+  if [ ! -f "$VENUS_DIR/target/release/cargo-zisk" ]; then
+    FOUND_CARGO=$(find "$VENUS_DIR" -type f -name cargo-zisk | head -n 1)
+    if [ -n "$FOUND_CARGO" ]; then
+      mkdir -p "$VENUS_DIR/target/release"
+      cp -f "$FOUND_CARGO" "$VENUS_DIR/target/release/cargo-zisk"
+    fi
+  fi
+
+  chmod +x "$VENUS_DIR/target/release/cargo-zisk" 2>/dev/null || true
+else
+  echo "[SKIP] cargo-zisk exists"
 fi
 
 # ===== FIX STRUCTURE =====
