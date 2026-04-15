@@ -11,8 +11,8 @@ CLAIM_REWARD_ADDRESS=$1
 BASE_DIR="$HOME/cysic-prover"
 VENUS_DIR="$HOME/venus_v0_1_6"
 
-ZISK_URL_1="https://public.prover.xyz/vadcop_final/venus_v0_1_6_backend_with_runtime.tar.zst"
-ZISK_URL_2="https://cys.atl1.cdn.digitaloceanspaces.com/cys/venus_v0_1_6_backend_with_runtime.tar.zst"
+ZISK_URL_2="https://public.prover.xyz/vadcop_final/venus_v0_1_6_backend_with_runtime.tar.zst"
+ZISK_URL_1="https://cys.atl1.cdn.digitaloceanspaces.com/cys/venus_v0_1_6_backend_with_runtime.tar.zst"
 BACKEND_SM89="https://public.prover.xyz/vadcop_final/venus_backend_sm_89.tar.zst"
 BACKEND_SM120="https://public.prover.xyz/vadcop_final/venus_backend_sm_120.tar.zst"
 
@@ -103,6 +103,7 @@ download_file "https://github.com/cysic-labs/cysic-mainnet-scripts/releases/down
 download_file "https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/v2.0.1/imetadata.bin" "./imetadata.bin"
 
 chmod +x prover
+echo "[INFO] Prover files ready"
 
 # ===== CONFIG =====
 if [ ! -f config.yaml ]; then
@@ -129,47 +130,11 @@ fi
 
 echo "LD_LIBRARY_PATH=. CHAIN_ID=534352 ./prover" > start.sh
 chmod +x start.sh
-# ========
-pick_fastest_url() {
-  local url1="$1"
-  local url2="$2"
-
-  test_speed() {
-    local url="$1"
-    local s
-
-    s=$(curl -L --fail --range 0-5242879 -o /dev/null -s -w '%{speed_download}' "$url" 2>/dev/null || true)
-
-    # Make sure we always get a numeric value
-    [[ "$s" =~ ^[0-9]+([.][0-9]+)?$ ]] || s=0
-    printf '%s' "$s"
-  }
-
-  local speed1 speed2
-  speed1=$(test_speed "$url1")
-  speed2=$(test_speed "$url2")
-
-  echo "[TEST] mirror1=$speed1 mirror2=$speed2" >&2
-
-  if awk -v a="$speed1" -v b="$speed2" 'BEGIN { exit !(a > b) }'; then
-    printf '%s\n' "$url1"
-  elif awk -v a="$speed2" -v b="$speed1" 'BEGIN { exit !(a > b) }'; then
-    printf '%s\n' "$url2"
-  else
-    # Fallback so it never returns empty
-    printf '%s\n' "$url1"
-  fi
-}
-
-ZISK_URL="$(pick_fastest_url "$ZISK_URL_1" "$ZISK_URL_2")"
-if [ -z "$ZISK_URL" ]; then
-  ZISK_URL="$ZISK_URL_1"
-fi
-echo "[SELECTED MIRROR] $ZISK_URL"
+echo "[INFO] Local config prepared"
 
 # ===== PART 2: DOWNLOAD BACKEND =====
 download_file "$BACKEND_URL" "$HOME/backend.tar.zst"
-download_file "$ZISK_URL" "$HOME/zisk.tar.zst"
+download_file "$ZISK_URL_1" "$HOME/zisk.tar.zst"
 
 # ===== EXTRACT BACKEND =====
 if [ ! -d "$VENUS_DIR/target" ]; then
