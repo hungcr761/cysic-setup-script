@@ -43,7 +43,8 @@ download_file() {
 
   echo "[DOWNLOAD] $url"
 
-  if [[ "$url" == *"prover.xyz"* ]]; then
+  if [[ "$url" == *"github.com"* ]]; then
+    # Use curl for GitHub (more stable with redirects/releases)
     curl -L --fail \
       --retry 10 \
       --retry-delay 5 \
@@ -52,7 +53,8 @@ download_file() {
       -o "$dst" \
       "$url"
   else
-    aria2c -x 2 -s 2 -k 1M \
+    # Use aria2c with 4 parallel connections for others
+    aria2c -x 4 -s 4 -k 1M \
       --file-allocation=none \
       --continue=true \
       --max-tries=10 \
