@@ -136,26 +136,30 @@ pick_fastest_url() {
   local url1="$1"
   local url2="$2"
 
-  echo "[TEST] Checking mirror speed..." >&2
-
   test_speed() {
     local url="$1"
-    curl -L --range 0-5242879 -o /dev/null -s -w "%{speed_download}" "$url"
+    local s
+
+    s=$(curl -L --fail --range 0-5242879 -o /dev/null -s -w '%{speed_download}' "$url" 2>/dev/null || true)
+
+    # Make sure we always get a numeric value
+    [[ "$s" =~ ^[0-9]+([.][0-9]+)?$ ]] || s=0
+    printf '%s' "$s"
   }
 
+  local speed1 speed2
   speed1=$(test_speed "$url1")
   speed2=$(test_speed "$url2")
 
-  echo "Speed1: $speed1" >&2
-  echo "Speed2: $speed2" >&2
+  echo "[TEST] mirror1=$speed1 mirror2=$speed2" >&2
 
-  speed1=${speed1:-0}
-  speed2=${speed2:-0}
-
-  if (( $(echo "$speed1 > $speed2" | bc -l) )); then
-    echo "$url1"
+  if awk -v a="$speed1" -v b="$speed2" 'BEGIN { exit !(a > b) }'; then
+    printf '%s\n' "$url1"
+  elif awk -v a="$speed2" -v b="$speed1" 'BEGIN { exit !(a > b) }'; then
+    printf '%s\n' "$url2"
   else
-    echo "$url2"
+    # Fallback so it never returns empty
+    printf '%s\n' "$url1"
   fi
 }
 
