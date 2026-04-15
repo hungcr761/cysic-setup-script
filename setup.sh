@@ -11,7 +11,12 @@ CLAIM_REWARD_ADDRESS=$1
 BASE_DIR="$HOME/cysic-prover"
 VENUS_DIR="$HOME/venus_v0_1_6"
 
-ZISK_URL="https://public.prover.xyz/vadcop_final/venus_v0_1_6_backend_with_runtime.tar.zst"
+ZISK_URL_1="https://public.prover.xyz/vadcop_final/venus_v0_1_6_backend_with_runtime.tar.zst"
+ZISK_URL_2="https://cys.atl1.cdn.digitaloceanspaces.com/cys/venus_v0_1_6_backend_with_runtime.tar.zst"
+
+ZISK_URL=$(pick_fastest_url "$ZISK_URL_1" "$ZISK_URL_2")
+
+echo "[SELECTED MIRROR] $ZISK_URL"
 BACKEND_SM89="https://public.prover.xyz/vadcop_final/venus_backend_sm_89.tar.zst"
 BACKEND_SM120="https://public.prover.xyz/vadcop_final/venus_backend_sm_120.tar.zst"
 
@@ -128,6 +133,35 @@ fi
 
 echo "LD_LIBRARY_PATH=. CHAIN_ID=534352 ./prover" > start.sh
 chmod +x start.sh
+# ========
+pick_fastest_url() {
+  local url1="$1"
+  local url2="$2"
+
+  echo "[TEST] Checking mirror speed..."
+
+  test_speed() {
+    local url="$1"
+    # Download first ~10MB to /dev/null and measure speed
+    curl -L --range 0-10242879 -o /dev/null -s -w "%{speed_download}" "$url"
+  }
+
+  speed1=$(test_speed "$url1")
+  speed2=$(test_speed "$url2")
+
+  echo "Speed1: $speed1"
+  echo "Speed2: $speed2"
+
+  # Default fallback if something fails
+  speed1=${speed1:-0}
+  speed2=${speed2:-0}
+
+  if (( $(echo "$speed1 > $speed2" | bc -l) )); then
+    echo "$url1"
+  else
+    echo "$url2"
+  fi
+}
 
 # ===== PART 2: DOWNLOAD BACKEND =====
 download_file "$BACKEND_URL" "$HOME/backend.tar.zst"
