@@ -136,7 +136,7 @@ pick_fastest_url() {
   local url1="$1"
   local url2="$2"
 
-  echo "[TEST] Checking mirror speed..."
+  echo "[TEST] Checking mirror speed..." >&2
 
   test_speed() {
     local url="$1"
@@ -146,8 +146,8 @@ pick_fastest_url() {
   speed1=$(test_speed "$url1")
   speed2=$(test_speed "$url2")
 
-  echo "Speed1: $speed1"
-  echo "Speed2: $speed2"
+  echo "Speed1: $speed1" >&2
+  echo "Speed2: $speed2" >&2
 
   speed1=${speed1:-0}
   speed2=${speed2:-0}
