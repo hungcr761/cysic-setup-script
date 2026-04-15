@@ -14,8 +14,6 @@ VENUS_DIR="$HOME/venus_v0_1_6"
 ZISK_URL_1="https://public.prover.xyz/vadcop_final/venus_v0_1_6_backend_with_runtime.tar.zst"
 ZISK_URL_2="https://cys.atl1.cdn.digitaloceanspaces.com/cys/venus_v0_1_6_backend_with_runtime.tar.zst"
 
-ZISK_URL=$(pick_fastest_url "$ZISK_URL_1" "$ZISK_URL_2")
-
 echo "[SELECTED MIRROR] $ZISK_URL"
 BACKEND_SM89="https://public.prover.xyz/vadcop_final/venus_backend_sm_89.tar.zst"
 BACKEND_SM120="https://public.prover.xyz/vadcop_final/venus_backend_sm_120.tar.zst"
@@ -142,8 +140,7 @@ pick_fastest_url() {
 
   test_speed() {
     local url="$1"
-    # Download first ~10MB to /dev/null and measure speed
-    curl -L --range 0-10242879 -o /dev/null -s -w "%{speed_download}" "$url"
+    curl -L --range 0-5242879 -o /dev/null -s -w "%{speed_download}" "$url"
   }
 
   speed1=$(test_speed "$url1")
@@ -152,7 +149,6 @@ pick_fastest_url() {
   echo "Speed1: $speed1"
   echo "Speed2: $speed2"
 
-  # Default fallback if something fails
   speed1=${speed1:-0}
   speed2=${speed2:-0}
 
