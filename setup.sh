@@ -145,11 +145,13 @@ else
 fi
 
 # ===== EXTRACT PROVING KEY =====
-if [ ! -d "$VENUS_DIR/build/provingKey" ]; then
-  echo "[EXTRACT] provingKey"
-  tar --zstd -xf "$HOME/zisk.tar.zst" -C "$VENUS_DIR" build/provingKey
+if [ ! -d "$VENUS_DIR/build/provingKey" ] || [ ! -f "$VENUS_DIR/target/release/cargo-zisk" ]; then
+  echo "[EXTRACT] zisk archive"
+  zstd -dc --long=31 -T0 "$HOME/zisk.tar.zst" | tar -xf - -C "$VENUS_DIR" \
+    build/provingKey \
+    target/release/cargo-zisk
 else
-  echo "[SKIP] provingKey exists"
+  echo "[SKIP] provingKey and cargo-zisk already exist"
 fi
 
 # ===== ENSURE RUNTIME BINARY =====
