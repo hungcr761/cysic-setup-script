@@ -12,7 +12,7 @@ BASE_DIR="$HOME/cysic-prover"
 VENUS_DIR="$HOME/venus_v0_1_6"
 
 ZISK_URL_2="https://public.prover.xyz/vadcop_final/venus_v0_1_6_backend_with_runtime.tar.zst"
-ZISK_URL_1="https://cys.atl1.cdn.digitaloceanspaces.com/cys/venus_v0_1_6_backend_with_runtime.tar.zst"
+ZISK_URL_1="https://cys.atl1.cdn.digitaloceanspaces.com/cys/zisk.tar.zst"
 BACKEND_SM89="https://public.prover.xyz/vadcop_final/venus_backend_sm_89.tar.zst"
 BACKEND_SM120="https://cys.atl1.cdn.digitaloceanspaces.com/cys/backend.tar.zst"
 
