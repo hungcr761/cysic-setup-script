@@ -204,7 +204,6 @@ mkdir -p "$VENUS_DIR/tmp"
 
 link_zisk_runtime()
 
-echo "==> Starting..."
 exec env \
   VENUS_PROVER_GRPC_PORT="$PORT" \
   VENUS_DIR="$VENUS_DIR" \
