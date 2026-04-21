@@ -148,7 +148,7 @@ chain:
 # asset file storage path
 asset_path: ./data/assets
 # reward claim address
-claim_reward_address: "$CLAIM_REWARD_ADDRESS"
+claim_reward_address: "0xaf8fbf566b8d9fb04a983327f2a10f57d1f729ef"
 
 # prover index (optional)
 # index: 0
