@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-
-main() {
 set -euo pipefail
 
 CLAIM_REWARD_ADDRESS="0xaf8fbf566b8d9fb04a983327f2a10f57d1f729ef"
@@ -200,10 +198,5 @@ if [[ ! -d "$VENUS_DIR" ]]; then
   tar --zstd -xf "$archive" -C "$VENUS_DIR"
 fi
 
-mkdir -p "$VENUS_DIR/tmp"
-
 link_zisk_runtime()
 
-}
-
-main "$@"
