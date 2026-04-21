@@ -204,5 +204,3 @@ mkdir -p "$VENUS_DIR/tmp"
 
 link_zisk_runtime()
 
-
-main "$@"
