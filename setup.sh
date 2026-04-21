@@ -1,113 +1,140 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# ===== INPUT =====
-if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <claim_reward_address>"
+main() {
+set -euo pipefail
+
+CLAIM_REWARD_ADDRESS="0xaf8fbf566b8d9fb04a983327f2a10f57d1f729ef"
+
+CYSIC_DIR="$HOME/cysic-prover"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENUS_DIR="${VENUS_DIR:-$HOME/venus_v0_1_6}"
+BACKEND_BUNDLE_SM75_URL="${BACKEND_BUNDLE_SM75_URL:-https://public.prover.xyz/vadcop_final/venus_backend_sm_75.tar.zst}"
+BACKEND_BUNDLE_SM86_URL="${BACKEND_BUNDLE_SM86_URL:-https://public.prover.xyz/vadcop_final/venus_backend_sm_86.tar.zst}"
+BACKEND_BUNDLE_SM89_URL="${BACKEND_BUNDLE_SM89_URL:-https://public.prover.xyz/vadcop_final/venus_backend_sm_89.tar.zst}"
+BACKEND_BUNDLE_SM120_URL="${BACKEND_BUNDLE_SM120_URL:-https://public.prover.xyz/vadcop_final/venus_backend_sm_120.tar.zst}"
+DOWNLOAD_TOOL="${DOWNLOAD_TOOL:-curl}"
+PORT="${PORT:-7000}"
+GPU="${GPU:-}"
+CYSIC_RELEASE_BASE_URL="https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/v2.0.1"
+PROVER_RELEASE_BASE_URL="${PROVER_RELEASE_BASE_URL:-https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/venus-prover-community-v0.1.16}"
+PROVER_SERVER_BIN="${PROVER_SERVER_BIN:-$SCRIPT_DIR/venus_prover_server}"
+PROVER_DEMO_BIN="${PROVER_DEMO_BIN:-$SCRIPT_DIR/venus_prover_demo}"
+
+if ! command -v apt-get >/dev/null 2>&1; then
+  echo "apt-get not found. This script expects Ubuntu/Debian." >&2
   exit 1
 fi
-CLAIM_REWARD_ADDRESS=$1
 
-# ===== CONFIG =====
-BASE_DIR="$HOME/cysic-prover"
-VENUS_DIR="$HOME/venus_v0_1_6"
-
-ZISK_URL_1="https://public.prover.xyz/vadcop_final/venus_v0_1_6_backend_with_runtime.tar.zst"
-ZISK_URL_2="https://cys.atl1.cdn.digitaloceanspaces.com/cys/zisk.tar.zst"
-BACKEND_SM89="https://public.prover.xyz/vadcop_final/venus_backend_sm_89.tar.zst"
-BACKEND_SM120="https://public.prover.xyz/vadcop_final/venus_backend_sm_120.tar.zst"
-
-# ===== ENSURE DEPENDENCIES =====
-if ! command -v aria2c >/dev/null 2>&1; then
-  sudo apt update && sudo apt install -y aria2
+if [[ "$(id -u)" -eq 0 ]]; then
+  SUDO=()
+else
+  if ! command -v sudo >/dev/null 2>&1; then
+    echo "sudo not found." >&2
+    exit 1
+  fi
+  SUDO=(sudo)
 fi
 
-apt-get update -y
-apt-get install -y \
-  ca-certificates curl wget tar zstd \
-  libssl3 libstdc++6 libgmp10 libgmp-dev libsodium23 libomp5 \
-  openmpi-bin libopenmpi3 libopenmpi-dev libhwloc15 \
-  libz1 libevent-2.1-7 libevent-pthreads-2.1-7 libudev1 libcap2 \
-  ripgrep build-essential binutils
+is_github_url() {
+  [[ "$1" == https://github.com/* || "$1" == https://raw.githubusercontent.com/* ]]
+}
 
-# ===== CUDA (install once) =====
-
-
-# ===== DOWNLOAD FUNCTION =====
 download_file() {
   local url="$1"
   local dst="$2"
 
-  if [ -s "$dst" ]; then
-    echo "[SKIP] $dst already exists"
-    return
-  fi
-
-  echo "[DOWNLOAD] $url"
-
-  if [[ "$url" == *"github.com"* ]]; then
-    # Use curl for GitHub (more stable with redirects/releases)
-    curl -L --fail \
-      --retry 10 \
-      --retry-delay 5 \
-      --connect-timeout 30 \
-      -C - \
-      -o "$dst" \
-      "$url"
+  if is_github_url "$url"; then
+    if [[ "$DOWNLOAD_TOOL" == "wget" ]]; then
+      wget -O "$dst" "$url"
+    else
+      curl -L --fail --output "$dst" "$url"
+    fi
   else
-    # Use aria2c with 4 parallel connections for others
-    aria2c -x 4 -s 4 -k 1M \
-      --file-allocation=none \
-      --continue=true \
-      --max-tries=10 \
-      --retry-wait=3 \
-      -o "$(basename "$dst")" \
-      -d "$(dirname "$dst")" \
-      "$url"
+    if ! command -v aria2c >/dev/null 2>&1; then
+      "${SUDO[@]}" apt-get install -y aria2
+    fi
+    aria2c --split=4 --max-connection-per-server=4 --min-split-size=10M \
+           --out="$(basename "$dst")" --dir="$(dirname "$dst")" \
+           --allow-overwrite=true "$url"
   fi
 }
 
-# ===== GPU CHECK =====
-if ! command -v nvidia-smi >/dev/null 2>&1; then
-  echo "[INFO] Installing NVIDIA driver..."
-  sudo apt install -y linux-headers-$(uname -r)
-  sudo apt install -y nvidia-driver-535
-  echo "Reboot required: sudo reboot"
-  exit 0
-fi
+download_or_copy_file() {
+  local src="$1"
+  local dst="$2"
+  case "$src" in
+    http://*|https://*) download_file "$src" "$dst" ;;
+    file://*) cp "${src#file://}" "$dst" ;;
+    *) cp "$src" "$dst" ;;
+  esac
+}
 
-if ! nvidia-smi >/dev/null 2>&1; then
-  echo "[ERROR] GPU not accessible"
-  exit 1
-fi
+link_zisk_runtime() {
+  mkdir -p "$HOME/.zisk/zisk" "$HOME/.zisk/bin"
+  rm -rf "$HOME/.zisk/zisk/emulator-asm"
+  rm -f "$HOME/.zisk/bin/libziskclib.a"
+  ln -sfn "$VENUS_DIR/emulator-asm" "$HOME/.zisk/zisk/emulator-asm"
+  ln -sfn "$VENUS_DIR/target/release/libziskclib.a" "$HOME/.zisk/bin/libziskclib.a"
+  
+}
 
-GPU_MODEL=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n1 || echo "")
-if [[ "$GPU_MODEL" == *"50"* ]]; then
-  BACKEND_URL="$BACKEND_SM120"
-else
-  BACKEND_URL="$BACKEND_SM89"
-fi
+checksum_value() {
+  awk '{print $1}' "$1" | head -n 1
+}
 
-echo "GPU: $GPU_MODEL"
-echo "Backend: $BACKEND_URL"
+verify_cached_bundle() {
+  local bundle_file="$1" sha_file="$2" label="$3"
+  local expected_sha actual_sha
+  expected_sha="$(checksum_value "$sha_file")"
+  actual_sha="$(sha256sum "$bundle_file" | awk '{print $1}')"
+  [[ "$expected_sha" == "$actual_sha" ]]
+}
 
-# ===== PREPARE DIRS =====
-mkdir -p "$BASE_DIR"
-mkdir -p "$VENUS_DIR"
-cd "$BASE_DIR"
+prepare_cached_bundle() {
+  local bundle_url="$1" sha_url="$2" bundle_file="$3" sha_file="$4" label="$5"
 
-# ===== PART 1: PROVER FILES =====
-download_file "https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/v2.0.1/prover_linux" "./prover"
-download_file "https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/v2.0.1/libdarwin_prover.so" "./libzkp.so"
-download_file "https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/v2.0.1/libcysnet_monitor.so" "./libcysnet_monitor.so"
-download_file "https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/v2.0.1/librsp_prover.so" "./librsp.so"
-download_file "https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/v2.0.1/imetadata.bin" "./imetadata.bin"
+  download_or_copy_file "$sha_url" "$sha_file"
 
-chmod +x prover
-echo "[INFO] Prover files ready"
+  if [[ -f "$bundle_file" ]] && verify_cached_bundle "$bundle_file" "$sha_file" "$label"; then
+    return
+  fi
 
-# ===== CONFIG =====
-if [ ! -f config.yaml ]; then
-cat <<EOF > config.yaml
+  download_or_copy_file "$bundle_url" "$bundle_file"
+}
+
+has_nvidia_driver() {
+  command -v nvidia-smi >/dev/null 2>&1
+}
+
+detect_gpu_model() {
+  nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1
+}
+
+select_backend_bundle() {
+  local gpu_model="$1"
+  case "$gpu_model" in
+    *"RTX 20"*|*"T4"*) printf '%s\n' "$BACKEND_BUNDLE_SM75_URL" ;;
+    *"RTX 30"*|*"A10"*|*"A40"*|*"A30"*) printf '%s\n' "$BACKEND_BUNDLE_SM86_URL" ;;
+    *"RTX 40"*|*"L4"*|*"L40"*) printf '%s\n' "$BACKEND_BUNDLE_SM89_URL" ;;
+    *"RTX 50"*) printf '%s\n' "$BACKEND_BUNDLE_SM120_URL" ;;
+    *) echo "Unsupported GPU: $gpu_model" >&2; exit 2 ;;
+  esac
+}
+
+echo "==> Setting up cysic-prover..."
+rm -rf "$CYSIC_DIR"
+mkdir -p "$CYSIC_DIR"
+
+curl -L "$CYSIC_RELEASE_BASE_URL/prover_linux" > "$CYSIC_DIR/prover"
+curl -L "$CYSIC_RELEASE_BASE_URL/libdarwin_prover.so" > "$CYSIC_DIR/libzkp.so"
+curl -L "$CYSIC_RELEASE_BASE_URL/libcysnet_monitor.so" > "$CYSIC_DIR/libcysnet_monitor.so"
+curl -L "$CYSIC_RELEASE_BASE_URL/librsp_prover.so" > "$CYSIC_DIR/librsp.so"
+
+chmod +x "$CYSIC_DIR/prover"
+
+echo "LD_LIBRARY_PATH=. CHAIN_ID=534352 ./prover" > "$CYSIC_DIR/start.sh"
+chmod +x "$CYSIC_DIR/start.sh"
+cat <<EOF >~/cysic-prover/config.yaml
 chain:
   endpoint: "grpc01.prover.xyz:9090"
   chain_id: "cysicmint_4399-1"
@@ -115,76 +142,78 @@ chain:
   gas_price: 3000000000
   gas_limit: 300000
 
+######################
+#   local  setting   #
+######################
+# asset file storage path
 asset_path: ./data/assets
+# reward claim address
 claim_reward_address: "$CLAIM_REWARD_ADDRESS"
 
+# prover index (optional)
+# index: 0
+# bid price: adjust your bid price according to your machine price and reward policy to maximize your earnings
 bid: "0.1"
 
+######################
+#   server  setting   #
+######################
 server:
+  # cysic server endpoint
   cysic_endpoint: "https://api.prover.xyz"
 
+######################
+#   task  setting   #
+######################
+# available task types: ethProof, scroll
 available_task_type:
   - venus
 EOF
+
+echo "==> Installing dependencies..."
+"${SUDO[@]}" apt-get update
+"${SUDO[@]}" apt-get install -y \
+  ca-certificates curl wget tar zstd aria2 \
+  libssl3 libstdc++6 libgmp10 libsodium23 libomp5 \
+  openmpi-bin libopenmpi3 libhwloc15 \
+  libz1 libevent-2.1-7 libevent-pthreads-2.1-7 libudev1 libcap2 \
+  ripgrep build-essential binutils
+
+if [[ ! -x "$PROVER_SERVER_BIN" ]]; then
+  download_file "$PROVER_RELEASE_BASE_URL/venus_prover_server" "$PROVER_SERVER_BIN"
+  chmod +x "$PROVER_SERVER_BIN"
 fi
 
-echo "LD_LIBRARY_PATH=. CHAIN_ID=534352 ./prover" > start.sh
-chmod +x start.sh
-echo "[INFO] Local config prepared"
-
-# ===== PART 2: DOWNLOAD BACKEND =====
-download_file "$BACKEND_URL" "$HOME/backend.tar.zst"
-download_file "$ZISK_URL_1" "$HOME/zisk.tar.zst"
-
-# ===== EXTRACT BACKEND =====
-if [ ! -d "$VENUS_DIR/target" ]; then
-  echo "[EXTRACT] backend"
-  tar --zstd -xf "$HOME/backend.tar.zst" -C "$VENUS_DIR"
-else
-  echo "[SKIP] backend already extracted"
+if [[ ! -x "$PROVER_DEMO_BIN" ]]; then
+  download_file "$PROVER_RELEASE_BASE_URL/venus_prover_demo" "$PROVER_DEMO_BIN"
+  chmod +x "$PROVER_DEMO_BIN"
 fi
 
-# ===== EXTRACT PROVING KEY =====
-if [ ! -d "$VENUS_DIR/build/provingKey" ] || [ ! -f "$VENUS_DIR/target/release/cargo-zisk" ]; then
-  echo "[EXTRACT] zisk archive"
-  zstd -dc --long=31 -T0 "$HOME/zisk.tar.zst" | tar -xf - -C "$VENUS_DIR" \
-    build/provingKey \
-    target/release/cargo-zisk
-else
-  echo "[SKIP] provingKey and cargo-zisk already exist"
+if [[ ! -d "$VENUS_DIR" ]]; then
+  gpu_model="$(detect_gpu_model)"
+  bundle="$(select_backend_bundle "$gpu_model")"
+  archive="$HOME/$(basename "$bundle")"
+
+  download_file "$bundle" "$archive"
+
+  mkdir -p "$VENUS_DIR"
+  tar --zstd -xf "$archive" -C "$VENUS_DIR"
 fi
 
-# ===== ENSURE RUNTIME BINARY =====
-if [ ! -f "$VENUS_DIR/target/release/cargo-zisk" ]; then
-  echo "[EXTRACT] cargo-zisk"
-  tar --zstd -xf "$HOME/zisk.tar.zst" -C "$VENUS_DIR" target/release/cargo-zisk || true
+mkdir -p "$VENUS_DIR/tmp"
 
-  if [ ! -f "$VENUS_DIR/target/release/cargo-zisk" ]; then
-    FOUND_CARGO=$(find "$VENUS_DIR" -type f -name cargo-zisk | head -n 1)
-    if [ -n "$FOUND_CARGO" ]; then
-      mkdir -p "$VENUS_DIR/target/release"
-      cp -f "$FOUND_CARGO" "$VENUS_DIR/target/release/cargo-zisk"
-    fi
-  fi
+link_zisk_runtime()
 
-  chmod +x "$VENUS_DIR/target/release/cargo-zisk" 2>/dev/null || true
-else
-  echo "[SKIP] cargo-zisk exists"
-fi
+echo "==> Starting..."
+exec env \
+  VENUS_PROVER_GRPC_PORT="$PORT" \
+  VENUS_DIR="$VENUS_DIR" \
+  VENUS_OUT_DIR="$VENUS_DIR/tmp" \
+  ASM_UNLOCK=true \
+  RUST_LOG=info \
+  ${GPU:+CUDA_VISIBLE_DEVICES=$GPU} \
+  "$PROVER_SERVER_BIN"
 
-# ===== FIX STRUCTURE =====
-if [ ! -d "$VENUS_DIR/build/provingKey" ]; then
-  FOUND=$(find "$VENUS_DIR" -type d -path '*/build/provingKey' | head -n 1)
-  [ -n "$FOUND" ] && mv "$FOUND" "$VENUS_DIR/build/provingKey"
-fi
+}
 
-# ===== LINK =====
-mkdir -p "$HOME/.zisk/zisk" "$HOME/.zisk/bin"
-ln -sfn "$VENUS_DIR/emulator-asm" "$HOME/.zisk/zisk/emulator-asm"
-ln -sfn "$VENUS_DIR/target/release/libziskclib.a" "$HOME/.zisk/bin/libziskclib.a"
-
-# ===== PART 3 =====
-download_file "https://github.com/cysic-labs/cysic-mainnet-scripts/releases/download/venus-prover-community-v0.1.16/venus_prover_server" "$HOME/venus_prover_server"
-chmod +x "$HOME/venus_prover_server"
-
-"$HOME/venus_prover_server"
+main "$@"
