@@ -204,15 +204,5 @@ mkdir -p "$VENUS_DIR/tmp"
 
 link_zisk_runtime()
 
-exec env \
-  VENUS_PROVER_GRPC_PORT="$PORT" \
-  VENUS_DIR="$VENUS_DIR" \
-  VENUS_OUT_DIR="$VENUS_DIR/tmp" \
-  ASM_UNLOCK=true \
-  RUST_LOG=info \
-  ${GPU:+CUDA_VISIBLE_DEVICES=$GPU} \
-  "$PROVER_SERVER_BIN"
-
-}
 
 main "$@"
