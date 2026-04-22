@@ -73,7 +73,7 @@ link_zisk_runtime() {
   rm -f "$HOME/.zisk/bin/libziskclib.a"
   ln -sfn "$VENUS_DIR/emulator-asm" "$HOME/.zisk/zisk/emulator-asm"
   ln -sfn "$VENUS_DIR/target/release/libziskclib.a" "$HOME/.zisk/bin/libziskclib.a"
-  
+  ln -sfn "$HOME/venus_v0_1_6/lib-c/c/lib/libziskc.a" "$HOME/.zisk/zisk/lib-c/c/lib/libziskc.a"
 }
 
 checksum_value() {
