@@ -198,5 +198,5 @@ if [[ ! -d "$VENUS_DIR" ]]; then
   tar --zstd -xf "$archive" -C "$VENUS_DIR"
 fi
 mkdir -p /root/.zisk/zisk/lib-c/c/lib
-link_zisk_runtime()
+link_zisk_runtime
 
