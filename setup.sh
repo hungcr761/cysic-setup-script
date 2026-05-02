@@ -193,6 +193,8 @@ if [[ ! -d "$VENUS_DIR" ]]; then
   archive="$HOME/$(basename "$bundle")"
 
   download_file "$bundle" "$archive"
+   mkdir -p "$VENUS_DIR"
+  tar --zstd -xf "$archive" -C "$VENUS_DIR"
 
 fi
 mkdir -p /root/.zisk/zisk/lib-c/c/lib
