@@ -194,8 +194,6 @@ if [[ ! -d "$VENUS_DIR" ]]; then
 
   download_file "$bundle" "$archive"
 
-  mkdir -p "$VENUS_DIR"
-  tar --zstd -xf "$archive" -C "$VENUS_DIR"
 fi
 mkdir -p /root/.zisk/zisk/lib-c/c/lib
 link_zisk_runtime
