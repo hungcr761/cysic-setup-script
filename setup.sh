@@ -114,7 +114,7 @@ select_backend_bundle() {
     *"RTX 20"*|*"T4"*) printf '%s\n' "$BACKEND_BUNDLE_SM75_URL" ;;
     *"RTX 30"*|*"A10"*|*"A40"*|*"A30"*) printf '%s\n' "$BACKEND_BUNDLE_SM86_URL" ;;
     *"RTX 40"*|*"L4"*|*"L40"*) printf '%s\n' "$BACKEND_BUNDLE_SM89_URL" ;;
-    *"RTX 50"*) printf '%s\n' "$BACKEND_BUNDLE_SM120_URL" ;;
+    *"RTX 50"*|*"PRO 6000"*|*"RTX PRO"*) printf '%s\n' "$BACKEND_BUNDLE_SM120_URL" ;;
     *) echo "Unsupported GPU: $gpu_model" >&2; exit 2 ;;
   esac
 }
